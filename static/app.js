@@ -104,11 +104,18 @@ function addHistory(d) {
 // ================= FETCH (FIXED) =================
 async function fetchData() {
   try {
-    const res = await fetch(`${API_BASE}/data?t=${Date.now()}`); // 🔥 no cache
+    const res = await fetch("https://warin-web.onrender.com/data", {
+      cache: "no-store"
+    });
+
     const data = await res.json();
+
+    console.log("LIVE DATA:", data); // 🔥 ต้องเห็นเปลี่ยน
+
     updateUI(data);
+
   } catch (e) {
-    console.log("offline");
+    console.log("offline", e);
   }
 }
 
