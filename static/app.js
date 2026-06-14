@@ -36,7 +36,6 @@ function getPhStatus(v) {
   return ["status-bad", "Critical"];
 }
 
-// ================= UPDATE UI =================
 function updateUI(d) {
   setText("val-ph", d.ph.toFixed(2));
   setText("val-tds", Math.round(d.tds));
@@ -50,12 +49,12 @@ function updateUI(d) {
 
   setStatus("stat-ph", getPhStatus(d.ph));
 
-  // battery
   setText("val-bat", d.battery);
   setBar("bat-fill", d.battery);
 
-  // prediction
   setText("pred-conf", (d.confidence * 100).toFixed(1) + "%");
+
+  updateMap(d.latitude, d.longitude);
 
   addHistory(d);
 }
