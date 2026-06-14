@@ -1,5 +1,5 @@
 // =========================
-// AquaSense Frontend Logic
+// FRONTEND LOGIC
 // =========================
 
 let mode = "demo";
