@@ -6,6 +6,9 @@ let history = [];
 let map = null;
 let marker = null;
 
+// ================= CONFIG =================
+const API_BASE = window.location.origin;
+
 // ================= UI HELPERS =================
 function setText(id, v) {
   const el = document.getElementById(id);
@@ -16,7 +19,7 @@ function setText(id, v) {
 function setBar(id, v) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.style.width = `${Math.min(100, Math.max(0, v || 0))}%`;
+  el.style.width = `${Math.min(100, Math.max(0, Number(v) || 0))}%`;
 }
 
 function setStatus(id, [cls, label]) {
@@ -37,11 +40,12 @@ function getPhStatus(v) {
 function updateUI(d) {
   if (!d) return;
 
-  const ph = Number(d.ph || 0);
-  const tds = Number(d.tds || 0);
-  const turb = Number(d.turbidity || 0);
-  const temp = Number(d.temperature || 0);
-  const bat = Number(d.battery || 0);
+  const ph = Number(d.ph ?? 0);
+  const tds = Number(d.tds ?? 0);
+  const turb = Number(d.turbidity ?? 0);
+  const temp = Number(d.temperature ?? 0);
+  const bat = Number(d.battery ?? 0);
+
   const lat = Number(d.latitude);
   const lon = Number(d.longitude);
 
@@ -59,7 +63,6 @@ function updateUI(d) {
 
   setStatus("stat-ph", getPhStatus(ph));
 
-  // confidence optional
   if (d.confidence != null) {
     setText("pred-conf", (d.confidence * 100).toFixed(1) + "%");
   }
@@ -69,7 +72,7 @@ function updateUI(d) {
   addHistory({
     time: Date.now(),
     ph, tds, turb, temp, bat,
-    prediction: d.prediction || "-"
+    prediction: d.prediction ?? "-"
   });
 }
 
@@ -98,25 +101,10 @@ function addHistory(d) {
   });
 }
 
-// ================= DEMO =================
-function demoTick() {
-  updateUI({
-    ph: 7 + Math.random(),
-    tds: 300 + Math.random() * 50,
-    turbidity: 2 + Math.random() * 2,
-    temperature: 25 + Math.random(),
-    battery: 80 + Math.random() * 10,
-    latitude: 13.7563,
-    longitude: 100.5018,
-    prediction: "Safe",
-    confidence: 0.9
-  });
-}
-
-// ================= FETCH =================
+// ================= FETCH (FIXED) =================
 async function fetchData() {
   try {
-    const res = await fetch("/data");
+    const res = await fetch(`${API_BASE}/data?t=${Date.now()}`); // 🔥 no cache
     const data = await res.json();
     updateUI(data);
   } catch (e) {
@@ -132,33 +120,47 @@ function setMode(m) {
   clearInterval(pollTimer);
 
   if (m === "demo") {
-    demoTimer = setInterval(demoTick, 2000);
+    demoTimer = setInterval(() => {
+      updateUI({
+        ph: 7 + Math.random(),
+        tds: 300 + Math.random() * 50,
+        turbidity: 2 + Math.random() * 2,
+        temperature: 25 + Math.random(),
+        battery: 80 + Math.random() * 10,
+        latitude: 13.7563,
+        longitude: 100.5018,
+        prediction: "Safe",
+        confidence: 0.9
+      });
+    }, 2000);
   }
 
   if (m === "http") {
+    fetchData(); // 🔥 run immediately
     pollTimer = setInterval(fetchData, 2000);
   }
 }
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", () => {
-  setMode("http"); // 🔥 IMPORTANT: use real data
+  setMode("http");
 });
 
-// ================= MAP =================
+// ================= MAP (FIXED) =================
 function updateMap(lat, lon) {
-  if (lat == null || lon == null) return;
-
   lat = Number(lat);
   lon = Number(lon);
 
-  if (isNaN(lat) || isNaN(lon)) return;
+  if (!isFinite(lat) || !isFinite(lon)) return;
+
+  // GPS not ready
+  if (lat === 0 && lon === 0) return;
 
   if (!map) {
-    map = L.map('map').setView([lat, lon], 15);
+    map = L.map("map").setView([lat, lon], 15);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap"
     }).addTo(map);
   }
 
@@ -168,7 +170,7 @@ function updateMap(lat, lon) {
     marker.setLatLng([lat, lon]);
   }
 
-  map.panTo([lat, lon], { animate: true });
+  map.setView([lat, lon], 15, { animate: true });
 
   setText("coord-lat", lat.toFixed(5));
   setText("coord-lon", lon.toFixed(5));
