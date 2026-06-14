@@ -129,3 +129,36 @@ function setMode(m) {
 document.addEventListener("DOMContentLoaded", () => {
   setMode("demo");
 });
+
+let map = null;
+let marker = null;
+
+function updateMap(lat, lon) {
+  if (!lat || !lon) return;
+
+  lat = parseFloat(lat);
+  lon = parseFloat(lon);
+
+  if (isNaN(lat) || isNaN(lon)) return;
+
+  if (!map) {
+    map = L.map('map').setView([lat, lon], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+  }
+
+  if (!marker) {
+    marker = L.marker([lat, lon]).addTo(map);
+  } else {
+    marker.setLatLng([lat, lon]);
+  }
+
+  map.setView([lat, lon], map.getZoom(), {
+    animate: true
+  });
+
+  setText("coord-lat", lat.toFixed(5));
+  setText("coord-lon", lon.toFixed(5));
+}

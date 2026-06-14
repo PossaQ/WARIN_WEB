@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AquaSense — Water Quality Monitor</title>
+<title>Warin — Water Quality Monitor</title>
 <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -435,7 +435,7 @@
     <div class="logo">
       <div class="logo-icon"><i class="ti ti-droplet"></i></div>
       <div>
-        <div class="logo-text">AquaSense</div>
+        <div class="logo-text">Warin</div>
         <div class="logo-sub">ESP32 Monitor</div>
       </div>
     </div>
@@ -1062,7 +1062,7 @@ function exportCSV() {
   const blob = new Blob([header + rows], {type:'text/csv'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `aquasense_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `warin_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 

@@ -1,0 +1,209 @@
+/* =========================
+   AquaSense CSS (separated)
+   ========================= */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #070b14;          /* darker than before */
+  --bg-card: #0e1424;     /* deeper panels */
+  --bg-card2: #141c2e;    /* inputs / secondary */
+  --border: rgba(255,255,255,0.05);
+  --border2: rgba(255,255,255,0.08);
+
+  --text: #e8edf5;
+  --text-muted: #6b7a94;
+  --text-dim: #3d4a60;
+  --accent: #22d3ee;
+  --accent2: #3b82f6;
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --ph-color: #8b5cf6;
+  --tds-color: #22d3ee;
+  --turb-color: #f59e0b;
+  --temp-color: #ef4444;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+}
+
+body {
+  background: radial-gradient(
+    circle at top,
+    #0a1020 0%,
+    #070b14 40%,
+    #05070f 100%
+  );
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ===== Layout ===== */
+.shell { display: flex; min-height: 100vh; }
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 220px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.logo {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg,#0ea5e9,#22d3ee);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+/* nav */
+.nav { padding: 12px 8px; }
+.nav-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.nav-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+}
+.nav-item.active {
+  background: rgba(34,211,238,0.1);
+  color: var(--accent);
+}
+
+/* ===== Main ===== */
+.main { flex: 1; display: flex; flex-direction: column; }
+
+.topbar {
+  height: 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ===== Sensor Cards ===== */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.sensor-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: relative;
+}
+
+.sensor-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--sensor-color, var(--accent));
+}
+
+.sensor-value {
+  font-size: 28px;
+  font-family: var(--mono);
+}
+
+/* status */
+.sensor-status {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-ok { background: rgba(16,185,129,0.1); color: #6ee7b7; }
+.status-warn { background: rgba(245,158,11,0.1); color: #fcd34d; }
+.status-bad { background: rgba(239,68,68,0.1); color: #fca5a5; }
+
+/* bars */
+.range-track {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+}
+.range-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+/* battery */
+.battery-bar-wrap {
+  width: 32px;
+  height: 14px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  position: relative;
+}
+
+.battery-fill {
+  height: 100%;
+  background: #10b981;
+}
+
+/* charts/map */
+.chart-card, .map-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* responsive */
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+}
