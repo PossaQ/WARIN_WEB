@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaSense — Water Quality Monitor</title>
+<link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b1220;
+    --bg-card: #111827;
+    --bg-card2: #1a2235;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8edf5;
+    --text-muted: #6b7a94;
+    --text-dim: #3d4a60;
+    --accent: #22d3ee;
+    --accent2: #3b82f6;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --ph-color: #8b5cf6;
+    --tds-color: #22d3ee;
+    --turb-color: #f59e0b;
+    --temp-color: #ef4444;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .logo {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: #fff;
+    flex-shrink: 0;
+  }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .nav { padding: 12px 8px; flex: 1; }
+  .nav-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; padding: 8px 12px 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s;
+    text-decoration: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .nav-item.active { background: rgba(34,211,238,0.1); color: var(--accent); }
+  .nav-item i { font-size: 16px; }
+
+  .sidebar-bottom {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .device-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card2);
+    font-size: 12px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.2);
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.offline { background: var(--danger); box-shadow: 0 0 0 2px rgba(239,68,68,0.2); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .topbar {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .page-title { font-size: 15px; font-weight: 600; }
+  .last-update { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border2);
+    background: var(--bg-card2);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: rgba(255,255,255,0.06); }
+  .btn-primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn i { font-size: 14px; }
+
+  .content { padding: 20px 24px; flex: 1; }
+
+  /* ── Alert banner ── */
+  .alert-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: #fca5a5;
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .alert-bar i { font-size: 16px; color: var(--danger); }
+  .alert-bar.hidden { display: none; }
+
+  /* ── Sensor grid ── */
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .sensor-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .sensor-card:hover { border-color: var(--border2); }
+  .sensor-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--sensor-color, var(--accent));
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .sensor-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .sensor-label i { font-size: 13px; color: var(--sensor-color, var(--accent)); }
+  .sensor-value {
+    font-size: 28px; font-weight: 600; font-family: var(--mono);
+    color: var(--text); line-height: 1;
+  }
+  .sensor-unit { font-size: 12px; font-weight: 400; color: var(--text-muted); margin-left: 3px; }
+  .sensor-range {
+    margin-top: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .range-track {
+    flex: 1; height: 3px; background: rgba(255,255,255,0.06);
+    border-radius: 2px; overflow: hidden;
+  }
+  .range-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--sensor-color, var(--accent));
+    transition: width 0.6s ease;
+  }
+  .sensor-status {
+    font-size: 10px; letter-spacing: 0.3px;
+    padding: 2px 6px; border-radius: 4px;
+    font-weight: 500;
+  }
+  .status-ok { background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .status-warn { background: rgba(245,158,11,0.1); color: #fcd34d; }
+  .status-bad { background: rgba(239,68,68,0.1); color: #fca5a5; }
+
+  /* ── Battery card ── */
+  .battery-inline {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 10px; font-size: 11px; color: var(--text-muted);
+  }
+  .battery-bar-wrap {
+    display: inline-flex; align-items: center;
+    border: 1.5px solid currentColor; border-radius: 3px;
+    padding: 2px; position: relative; width: 32px; height: 14px;
+    color: var(--text-muted);
+  }
+  .battery-bar-wrap::after {
+    content: '';
+    position: absolute; right: -5px; top: 3px;
+    width: 3px; height: 6px;
+    background: currentColor; border-radius: 0 2px 2px 0;
+  }
+  .battery-fill {
+    height: 100%; border-radius: 1px;
+    background: var(--success);
+    transition: width 0.5s;
+  }
+
+  /* ── ML Prediction card ── */
+  .prediction-row {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pred-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card-title i { font-size: 15px; }
+
+  .pred-result {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .pred-badge {
+    font-size: 22px; font-weight: 600;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-family: var(--mono);
+    letter-spacing: -0.5px;
+  }
+  .pred-badge.safe { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.2); }
+  .pred-badge.warn { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.2); }
+  .pred-badge.unsafe { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
+
+  .pred-detail { flex: 1; }
+  .pred-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .confidence-track {
+    height: 6px; background: rgba(255,255,255,0.06);
+    border-radius: 3px; overflow: hidden; margin-top: 4px;
+  }
+  .confidence-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 0.6s ease;
+  }
+  .pred-classes { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .pred-class-item {
+    font-size: 11px; padding: 3px 8px;
+    border-radius: 4px; border: 1px solid var(--border2);
+    color: var(--text-muted); font-family: var(--mono);
+    display: flex; gap: 5px; align-items: center;
+  }
+  .pred-class-item span { color: var(--text); font-weight: 500; }
+
+  /* ── Map ── */
+  .map-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .map-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #map { height: 280px; width: 100%; }
+
+  .map-coords {
+    font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .coord-val { color: var(--accent); }
+
+  /* ── Charts row ── */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .chart-card canvas { display: block; }
+
+  /* ── History table ── */
+  .history-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .history-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    padding: 8px 14px; text-align: left;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-dim); font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.1);
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-badge {
+    display: inline-block;
+    padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500;
+  }
+
+  /* ── Connection panel ── */
+  .conn-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex; align-items: flex-start; gap: 20px;
+    flex-wrap: wrap;
+  }
+  .conn-field { flex: 1; min-width: 200px; }
+  .conn-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 6px; }
+  .conn-input {
+    width: 100%; padding: 8px 10px;
+    background: var(--bg-card2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: var(--mono); font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .conn-input:focus { border-color: var(--accent); }
+
+  /* ── Responsive ── */
+  @media (max-width: 960px) {
+    .prediction-row { grid-template-columns: 1fr; }
+    .charts-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Leaflet dark override ── */
+  .leaflet-container { background: #0f172a !important; }
+  .leaflet-popup-content-wrapper { background: var(--bg-card); color: var(--text); border: 1px solid var(--border2); border-radius: 8px; }
+  .leaflet-popup-tip { background: var(--bg-card); }
+
+  /* ── Connection mode selector ── */
+  .mode-tabs { display: flex; gap: 4px; }
+  .mode-tab {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border2); background: transparent; color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .mode-tab.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon"><i class="ti ti-droplet"></i></div>
+      <div>
+        <div class="logo-text">AquaSense</div>
+        <div class="logo-sub">ESP32 Monitor</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">Monitor</div>
+      <a class="nav-item active" href="#dashboard" onclick="showSection('dashboard',this)">
+        <i class="ti ti-layout-dashboard"></i> Dashboard
+      </a>
+      <a class="nav-item" href="#map-section" onclick="showSection('map-section',this)">
+        <i class="ti ti-map-2"></i> Map
+      </a>
+      <a class="nav-item" href="#history-section" onclick="showSection('history-section',this)">
+        <i class="ti ti-history"></i> History
+      </a>
+      <div class="nav-label" style="margin-top:8px">Device</div>
+      <a class="nav-item" href="#settings-section" onclick="showSection('settings-section',this)">
+        <i class="ti ti-settings"></i> Settings
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="device-pill">
+        <div class="status-dot" id="sidebar-dot"></div>
+        <div>
+          <div style="font-size:12px;font-weight:500" id="sidebar-status">Connected</div>
+          <div style="font-size:10px;color:var(--text-muted)" id="sidebar-device">ESP32-AquaNode-01</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Live Dashboard</div>
+        <div class="last-update">Updated: <span id="last-update-time">—</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tab-demo" onclick="setMode('demo')">Demo</button>
+          <button class="mode-tab" id="tab-ws" onclick="setMode('ws')">WebSocket</button>
+          <button class="mode-tab" id="tab-http" onclick="setMode('http')">HTTP Poll</button>
+        </div>
+        <button class="btn" onclick="exportCSV()"><i class="ti ti-download"></i> Export</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- Alert bar -->
+      <div class="alert-bar hidden" id="alert-bar">
+        <i class="ti ti-alert-triangle"></i>
+        <span id="alert-text">Water quality alert detected.</span>
+        <button class="btn" style="margin-left:auto;padding:3px 8px" onclick="document.getElementById('alert-bar').classList.add('hidden')">Dismiss</button>
+      </div>
+
+      <!-- Settings panel (hidden by default) -->
+      <div id="settings-section" style="display:none;margin-bottom:20px">
+        <div class="conn-panel">
+          <div class="conn-field">
+            <div class="conn-label">WebSocket URL</div>
+            <input class="conn-input" id="ws-url" type="text" placeholder="ws://192.168.1.100:81" value="ws://192.168.1.100:81">
+          </div>
+          <div class="conn-field">
+            <div class="conn-label">HTTP Endpoint URL</div>
+            <input class="conn-input" id="http-url" type="text" placeholder="http://192.168.1.100/data" value="http://192.168.1.100/data">
+          </div>
+          <div class="conn-field" style="flex:0 0 auto;align-self:flex-end">
+            <div class="conn-label">Poll Interval (s)</div>
+            <input class="conn-input" id="poll-interval" type="number" value="5" min="1" max="60" style="width:100px">
+          </div>
+          <div style="align-self:flex-end">
+            <button class="btn btn-primary" onclick="applySettings()"><i class="ti ti-plug"></i> Connect</button>
+          </div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-family:var(--mono);font-size:12px;color:var(--text-muted)">
+          <div style="color:var(--text-muted);margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:0.8px">ESP32 Arduino — expected JSON payload</div>
+          <pre style="white-space:pre-wrap;color:#94a3b8">{
+  "ph": 7.2,
+  "tds": 312,
+  "turbidity": 2.1,
+  "temperature": 24.5,
+  "battery": 87,
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "prediction": "Safe",
+  "confidence": 0.94,
+  "timestamp": 1718000000
+}</pre>
+        </div>
+      </div>
+
+      <!-- Sensor cards -->
+      <div class="sensor-grid" id="dashboard">
+        <!-- ph -->
+        <div class="sensor-card" style="--sensor-color:var(--ph-color)">
+          <div class="sensor-label"><i class="ti ti-flask"></i> pH Level</div>
+          <div><span class="sensor-value" id="val-ph">—</span><span class="sensor-unit">pH</span></div>
+          <div class="sensor-range">
+            <div class="range-track"><div class="range-fill" id="bar-ph" style="width:0%"></div></div>
+            <span class="sensor-status status-ok" id="stat-ph">—</span>
+          </div>
+        </div>
+        <!-- tds -->
+        <div class="sensor-card" style="--sensor-color:var(--tds-color)">
+          <div class="sensor-label"><i class="ti ti-atom-2"></i> TDS</div>
+          <div><span class="sensor-value" id="val-tds">—</span><span class="sensor-unit">ppm</span></div>
+          <div class="sensor-range">
+            <div class="range-track"><div class="range-fill" id="bar-tds" style="width:0%"></div></div>
+            <span class="sensor-status status-ok" id="stat-tds">—</span>
+          </div>
+        </div>
+        <!-- turbidity -->
+        <div class="sensor-card" style="--sensor-color:var(--turb-color)">
+          <div class="sensor-label"><i class="ti ti-eye-off"></i> Turbidity</div>
+          <div><span class="sensor-value" id="val-turb">—</span><span class="sensor-unit">NTU</span></div>
+          <div class="sensor-range">
+            <div class="range-track"><div class="range-fill" id="bar-turb" style="width:0%"></div></div>
+            <span class="sensor-status status-ok" id="stat-turb">—</span>
+          </div>
+        </div>
+        <!-- temperature -->
+        <div class="sensor-card" style="--sensor-color:var(--temp-color)">
+          <div class="sensor-label"><i class="ti ti-temperature"></i> Temperature</div>
+          <div><span class="sensor-value" id="val-temp">—</span><span class="sensor-unit">°C</span></div>
+          <div class="sensor-range">
+            <div class="range-track"><div class="range-fill" id="bar-temp" style="width:0%"></div></div>
+            <span class="sensor-status status-ok" id="stat-temp">—</span>
+          </div>
+        </div>
+        <!-- battery -->
+        <div class="sensor-card" style="--sensor-color:#22c55e">
+          <div class="sensor-label"><i class="ti ti-battery-charging"></i> Battery</div>
+          <div><span class="sensor-value" id="val-bat">—</span><span class="sensor-unit">%</span></div>
+          <div class="battery-inline">
+            <div class="battery-bar-wrap">
+              <div class="battery-fill" id="bat-fill" style="width:0%"></div>
+            </div>
+            <span id="bat-label">—</span>
+          </div>
+        </div>
+        <!-- device info -->
+        <div class="sensor-card" style="--sensor-color:var(--accent2)">
+          <div class="sensor-label"><i class="ti ti-cpu"></i> ESP32 Node</div>
+          <div style="font-size:13px;font-family:var(--mono);color:var(--text);margin-top:4px" id="val-device">AquaNode-01</div>
+          <div style="margin-top:8px">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Uptime</div>
+            <div style="font-size:13px;font-family:var(--mono);color:var(--accent)" id="val-uptime">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prediction + Map row -->
+      <div class="prediction-row">
+        <!-- ML Prediction -->
+        <div class="pred-card">
+          <div class="card-header">
+            <div class="card-title"><i class="ti ti-brain"></i> ML Water Quality Prediction</div>
+            <div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">Model: RF-WQ-v2</div>
+          </div>
+          <div class="pred-result">
+            <div class="pred-badge safe" id="pred-badge">—</div>
+            <div class="pred-detail">
+              <div class="pred-label">Confidence</div>
+              <div style="font-size:18px;font-family:var(--mono);font-weight:600" id="pred-conf">—%</div>
+              <div class="confidence-track">
+                <div class="confidence-fill" id="conf-bar" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="pred-classes" id="pred-classes">
+            <div class="pred-class-item">Safe <span id="pc-safe">—</span></div>
+            <div class="pred-class-item">Marginal <span id="pc-marg">—</span></div>
+            <div class="pred-class-item">Unsafe <span id="pc-unsafe">—</span></div>
+          </div>
+        </div>
+
+        <!-- Map -->
+        <div class="map-card" id="map-section">
+          <div class="map-header">
+            <div class="card-title"><i class="ti ti-map-pin"></i> Device Location</div>
+            <div class="map-coords">
+              Lat <span class="coord-val" id="coord-lat">—</span>
+              Lon <span class="coord-val" id="coord-lon">—</span>
+            </div>
+          </div>
+          <div id="map"></div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="card-header">
+            <div class="card-title"><i class="ti ti-chart-line"></i> pH & TDS Trend</div>
+          </div>
+          <div style="position:relative;height:200px">
+            <canvas id="chart-phtds" role="img" aria-label="Line chart showing pH and TDS over time"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-header">
+            <div class="card-title"><i class="ti ti-chart-line"></i> Turbidity & Temperature</div>
+          </div>
+          <div style="position:relative;height:200px">
+            <canvas id="chart-turbtemp" role="img" aria-label="Line chart showing turbidity and temperature over time"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- History table -->
+      <div class="history-card" id="history-section">
+        <div class="history-header">
+          <div class="card-title"><i class="ti ti-table"></i> Reading History</div>
+          <button class="btn" onclick="clearHistory()"><i class="ti ti-trash"></i> Clear</button>
+        </div>
+        <div class="table-wrap">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>pH</th>
+                <th>TDS (ppm)</th>
+                <th>Turbidity (NTU)</th>
+                <th>Temp (°C)</th>
+                <th>Battery</th>
+                <th>Prediction</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:24px">Waiting for data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- .content -->
+  </div><!-- .main -->
+</div><!-- .shell -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+/* ─────────────────────────────────────────────
+   State
+───────────────────────────────────────────── */
+let mode = 'demo';
+let ws = null;
+let pollTimer = null;
+let demoTimer = null;
+let uptime = 0;
+let uptimeTimer = null;
+let history = [];
+let map = null;
+let marker = null;
+let chartPHTDS = null;
+let chartTT = null;
+const MAX_HISTORY = 50;
+const MAX_CHART_POINTS = 20;
+
+let chartLabels = [];
+let phData = [], tdsData = [], turbData = [], tempData = [];
+
+/* ─────────────────────────────────────────────
+   Map init
+───────────────────────────────────────────── */
+function initMap(lat, lon) {
+  if (!map) {
+    map = L.map('map', {zoomControl: true}).setView([lat, lon], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO',
+      maxZoom: 19
+    }).addTo(map);
+  }
+
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;background:#22d3ee;border:2px solid #0ea5e9;border-radius:50%;box-shadow:0 0 0 4px rgba(34,211,238,0.2)"></div>`,
+    iconSize: [14,14],
+    iconAnchor: [7,7]
+  });
+
+  if (marker) {
+    marker.setLatLng([lat, lon]);
+    map.panTo([lat, lon]);
+  } else {
+    marker = L.marker([lat, lon], {icon})
+      .addTo(map)
+      .bindPopup(`<b style="color:#22d3ee">ESP32 Node</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Charts init
+───────────────────────────────────────────── */
+function initCharts() {
+  const opts = (label1, color1, label2, color2) => ({
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#6b7a94', font: {size:10}, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: { ticks: { color: '#6b7a94', font: {size:10} }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y2: { position: 'right', ticks: { color: '#6b7a94', font: {size:10} }, grid: { display: false } }
+    }
+  });
+
+  chartPHTDS = new Chart(document.getElementById('chart-phtds'), {
+    type: 'line',
+    data: {
+      labels: chartLabels,
+      datasets: [
+        { label:'pH', data: phData, borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,0.05)', tension:0.4, pointRadius:2, yAxisID:'y' },
+        { label:'TDS', data: tdsData, borderColor:'#22d3ee', backgroundColor:'rgba(34,211,238,0.05)', tension:0.4, pointRadius:2, yAxisID:'y2', borderDash:[4,2] }
+      ]
+    },
+    options: opts('pH','#8b5cf6','TDS','#22d3ee')
+  });
+
+  chartTT = new Chart(document.getElementById('chart-turbtemp'), {
+    type: 'line',
+    data: {
+      labels: chartLabels,
+      datasets: [
+        { label:'Turbidity', data: turbData, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.05)', tension:0.4, pointRadius:2, yAxisID:'y' },
+        { label:'Temp', data: tempData, borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.05)', tension:0.4, pointRadius:2, yAxisID:'y2', borderDash:[4,2] }
+      ]
+    },
+    options: opts('Turbidity','#f59e0b','Temp','#ef4444')
+  });
+}
+
+/* ─────────────────────────────────────────────
+   Thresholds & status
+───────────────────────────────────────────── */
+function getPhStatus(v) {
+  if (v >= 6.5 && v <= 8.5) return ['status-ok','Normal'];
+  if ((v >= 6.0 && v < 6.5) || (v > 8.5 && v <= 9.0)) return ['status-warn','Marginal'];
+  return ['status-bad','Critical'];
+}
+function getTdsStatus(v) {
+  if (v < 300) return ['status-ok','Excellent'];
+  if (v < 600) return ['status-ok','Good'];
+  if (v < 900) return ['status-warn','Fair'];
+  return ['status-bad','Poor'];
+}
+function getTurbStatus(v) {
+  if (v < 4) return ['status-ok','Clear'];
+  if (v < 10) return ['status-warn','Cloudy'];
+  return ['status-bad','Turbid'];
+}
+function getTempStatus(v) {
+  if (v >= 10 && v <= 30) return ['status-ok','Normal'];
+  if ((v >= 5 && v < 10) || (v > 30 && v <= 35)) return ['status-warn','Marginal'];
+  return ['status-bad','Critical'];
+}
+
+/* ─────────────────────────────────────────────
+   Update UI with sensor data
+───────────────────────────────────────────── */
+function updateUI(d) {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString();
+
+  // Sensor values
+  setText('val-ph', d.ph.toFixed(1));
+  setText('val-tds', Math.round(d.tds));
+  setText('val-turb', d.turbidity.toFixed(1));
+  setText('val-temp', d.temperature.toFixed(1));
+  setText('val-bat', Math.round(d.battery));
+  setText('last-update-time', timeStr);
+
+  // Range bars
+  setBar('bar-ph', (d.ph / 14) * 100);
+  setBar('bar-tds', Math.min((d.tds / 1000) * 100, 100));
+  setBar('bar-turb', Math.min((d.turbidity / 20) * 100, 100));
+  setBar('bar-temp', Math.min((d.temperature / 50) * 100, 100));
+
+  // Status badges
+  setStatus('stat-ph', getPhStatus(d.ph));
+  setStatus('stat-tds', getTdsStatus(d.tds));
+  setStatus('stat-turb', getTurbStatus(d.turbidity));
+  setStatus('stat-temp', getTempStatus(d.temperature));
+
+  // Battery
+  const batFill = document.getElementById('bat-fill');
+  batFill.style.width = d.battery + '%';
+  batFill.style.background = d.battery > 50 ? '#10b981' : d.battery > 20 ? '#f59e0b' : '#ef4444';
+  setText('bat-label', d.battery + '% — ' + (d.battery > 20 ? 'OK' : 'Low'));
+
+  // ML Prediction
+  const pred = d.prediction || 'Unknown';
+  const conf = d.confidence || 0;
+  const badge = document.getElementById('pred-badge');
+  badge.textContent = pred;
+  badge.className = 'pred-badge ' + (pred === 'Safe' ? 'safe' : pred === 'Marginal' ? 'warn' : 'unsafe');
+  setText('pred-conf', (conf * 100).toFixed(1) + '%');
+  setBar('conf-bar', conf * 100);
+
+  // Class probabilities (simulate if not given)
+  const probs = d.class_probs || simulateProbs(pred, conf);
+  setText('pc-safe', (probs.safe * 100).toFixed(0) + '%');
+  setText('pc-marg', (probs.marginal * 100).toFixed(0) + '%');
+  setText('pc-unsafe', (probs.unsafe * 100).toFixed(0) + '%');
+
+  // Alert
+  const alertBar = document.getElementById('alert-bar');
+  if (pred === 'Unsafe' || d.ph < 5 || d.ph > 9 || d.turbidity > 15 || d.tds > 900) {
+    alertBar.classList.remove('hidden');
+    setText('alert-text', `⚠ Alert: ${pred === 'Unsafe' ? 'Unsafe water quality detected.' : 'Sensor value out of safe range.'} Check device immediately.`);
+  }
+
+  // Map
+  if (d.latitude && d.longitude) {
+    initMap(d.latitude, d.longitude);
+    setText('coord-lat', d.latitude.toFixed(5));
+    setText('coord-lon', d.longitude.toFixed(5));
+  }
+
+  // Charts
+  const label = timeStr.slice(0,-3);
+  if (chartLabels.length >= MAX_CHART_POINTS) {
+    chartLabels.shift(); phData.shift(); tdsData.shift(); turbData.shift(); tempData.shift();
+  }
+  chartLabels.push(label);
+  phData.push(parseFloat(d.ph.toFixed(2)));
+  tdsData.push(Math.round(d.tds));
+  turbData.push(parseFloat(d.turbidity.toFixed(1)));
+  tempData.push(parseFloat(d.temperature.toFixed(1)));
+  chartPHTDS.update('quiet');
+  chartTT.update('quiet');
+
+  // History
+  addHistory(timeStr, d, pred, conf);
+}
+
+function simulateProbs(pred, conf) {
+  const rem = 1 - conf;
+  if (pred === 'Safe') return {safe: conf, marginal: rem * 0.6, unsafe: rem * 0.4};
+  if (pred === 'Marginal') return {safe: rem * 0.4, marginal: conf, unsafe: rem * 0.6};
+  return {safe: rem * 0.2, marginal: rem * 0.8, unsafe: conf};
+}
+
+function addHistory(time, d, pred, conf) {
+  const tbody = document.getElementById('history-body');
+  // Remove placeholder
+  if (history.length === 0) tbody.innerHTML = '';
+  history.unshift({time, d, pred, conf});
+  if (history.length > MAX_HISTORY) history.pop();
+
+  const cls = pred === 'Safe' ? 'status-ok' : pred === 'Marginal' ? 'status-warn' : 'status-bad';
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td>${time}</td>
+    <td>${d.ph.toFixed(2)}</td>
+    <td>${Math.round(d.tds)}</td>
+    <td>${d.turbidity.toFixed(1)}</td>
+    <td>${d.temperature.toFixed(1)}</td>
+    <td>${Math.round(d.battery)}%</td>
+    <td><span class="td-badge sensor-status ${cls}">${pred}</span></td>
+  `;
+  tbody.insertBefore(row, tbody.firstChild);
+  while (tbody.rows.length > MAX_HISTORY) tbody.deleteRow(tbody.rows.length - 1);
+}
+
+/* ─────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────── */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function setBar(id, pct) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.min(100, Math.max(0, pct)) + '%';
+}
+function setStatus(id, [cls, label]) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'sensor-status ' + cls;
+  el.textContent = label;
+}
+
+/* ─────────────────────────────────────────────
+   Demo mode — simulated data
+───────────────────────────────────────────── */
+let demoPhase = 0;
+function demoTick() {
+  demoPhase += 0.08;
+  const jitter = () => (Math.random() - 0.5) * 0.15;
+
+  const data = {
+    ph: parseFloat((7.2 + Math.sin(demoPhase * 0.7) * 0.8 + jitter()).toFixed(2)),
+    tds: parseFloat((320 + Math.sin(demoPhase * 0.5) * 60 + (Math.random() - 0.5) * 20).toFixed(0)),
+    turbidity: parseFloat((2.5 + Math.abs(Math.sin(demoPhase * 0.4)) * 3 + Math.random() * 0.5).toFixed(1)),
+    temperature: parseFloat((24 + Math.sin(demoPhase * 0.2) * 3 + jitter()).toFixed(1)),
+    battery: Math.max(10, Math.round(87 - (demoPhase * 0.3))),
+    latitude: 13.7563 + Math.sin(demoPhase * 0.03) * 0.002,
+    longitude: 100.5018 + Math.cos(demoPhase * 0.03) * 0.002,
+    prediction: demoPhase % 30 < 2 ? 'Unsafe' : (demoPhase % 15 < 1.5 ? 'Marginal' : 'Safe'),
+    confidence: parseFloat((0.88 + Math.sin(demoPhase) * 0.07).toFixed(2))
+  };
+
+  updateUI(data);
+}
+
+/* ─────────────────────────────────────────────
+   WebSocket mode
+───────────────────────────────────────────── */
+function connectWS() {
+  const url = document.getElementById('ws-url').value.trim();
+  if (!url) return;
+  if (ws) { ws.close(); ws = null; }
+
+  try {
+    ws = new WebSocket(url);
+    ws.onopen = () => setConnectionStatus(true);
+    ws.onclose = () => setConnectionStatus(false);
+    ws.onerror = () => setConnectionStatus(false);
+    ws.onmessage = (e) => {
+      try { updateUI(JSON.parse(e.data)); } catch(err) {}
+    };
+  } catch(e) {
+    setConnectionStatus(false);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   HTTP Poll mode
+───────────────────────────────────────────── */
+function startHTTPPoll() {
+  const url = document.getElementById('http-url').value.trim();
+  const interval = parseInt(document.getElementById('poll-interval').value) || 5;
+  if (!url) return;
+  if (pollTimer) clearInterval(pollTimer);
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      updateUI(data);
+      setConnectionStatus(true);
+    } catch(e) {
+      setConnectionStatus(false);
+    }
+  };
+
+  fetchData();
+  pollTimer = setInterval(fetchData, interval * 1000);
+}
+
+function setConnectionStatus(online) {
+  const dot = document.getElementById('sidebar-dot');
+  const status = document.getElementById('sidebar-status');
+  if (online) {
+    dot.className = 'status-dot';
+    status.textContent = 'Connected';
+  } else {
+    dot.className = 'status-dot offline';
+    status.textContent = 'Disconnected';
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Mode switching
+───────────────────────────────────────────── */
+function setMode(m) {
+  mode = m;
+  ['demo','ws','http'].forEach(id => {
+    document.getElementById('tab-'+id).classList.toggle('active', id === m);
+  });
+
+  // Stop all
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (ws) { ws.close(); ws = null; }
+
+  if (m === 'demo') {
+    setConnectionStatus(true);
+    demoTimer = setInterval(demoTick, 2000);
+    demoTick();
+  } else if (m === 'ws') {
+    showSection('settings-section', null);
+    setConnectionStatus(false);
+  } else if (m === 'http') {
+    showSection('settings-section', null);
+    setConnectionStatus(false);
+  }
+}
+
+function applySettings() {
+  if (mode === 'ws') connectWS();
+  else if (mode === 'http') startHTTPPoll();
+}
+
+/* ─────────────────────────────────────────────
+   Section nav
+───────────────────────────────────────────── */
+function showSection(id, el) {
+  if (el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+  }
+  if (id === 'settings-section') {
+    document.getElementById('settings-section').style.display = '';
+  } else {
+    document.getElementById('settings-section').style.display = 'none';
+  }
+  if (id !== 'settings-section') {
+    const target = document.getElementById(id);
+    if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Export CSV
+───────────────────────────────────────────── */
+function exportCSV() {
+  if (!history.length) return;
+  const header = 'Time,pH,TDS(ppm),Turbidity(NTU),Temperature(°C),Battery(%),Prediction,Confidence\n';
+  const rows = history.map(r =>
+    `${r.time},${r.d.ph},${r.d.tds},${r.d.turbidity},${r.d.temperature},${r.d.battery},${r.pred},${(r.conf*100).toFixed(1)}%`
+  ).join('\n');
+  const blob = new Blob([header + rows], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `aquasense_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function clearHistory() {
+  history = [];
+  document.getElementById('history-body').innerHTML =
+    '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:24px">No data</td></tr>';
+}
+
+/* ─────────────────────────────────────────────
+   Uptime counter
+───────────────────────────────────────────── */
+function startUptime() {
+  uptime = 0;
+  uptimeTimer = setInterval(() => {
+    uptime++;
+    const h = Math.floor(uptime/3600).toString().padStart(2,'0');
+    const m = Math.floor((uptime%3600)/60).toString().padStart(2,'0');
+    const s = (uptime%60).toString().padStart(2,'0');
+    setText('val-uptime', `${h}:${m}:${s}`);
+  }, 1000);
+}
+
+/* ─────────────────────────────────────────────
+   Boot
+───────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  initCharts();
+  startUptime();
+  initMap(13.7563, 100.5018);
+  setMode('demo');
+});
+</script>
+</body>
+</html>
