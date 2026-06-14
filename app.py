@@ -36,13 +36,25 @@ def get_history():
 def update():
     global latest_data
 
-    data = request.json
-    print("🔥 RECEIVED FROM ESP:", data)  # << ต้องเห็น
+    data = request.get_json(force=True)
+    print("🔥 RAW ESP:", data)
 
-    latest_data.update(data)
-    latest_data["timestamp"] = int(time.time())
+    latest_data = {
+        "ph": float(data.get("ph", 0)),
+        "tds": float(data.get("tds", 0)),
+        "turbidity": float(data.get("turbidity", 0)),
+        "temperature": float(data.get("temperature", 0)),
+        "battery": float(data.get("battery", 0)),
+        "latitude": float(data.get("latitude", 0)),
+        "longitude": float(data.get("longitude", 0)),
+        "prediction": data.get("prediction", "Safe"),
+        "confidence": float(data.get("confidence", 0)),
+        "timestamp": int(time.time())
+    }
 
-    return jsonify({"status": "ok"})
+    print("✅ UPDATED:", latest_data)
+
+    return jsonify(latest_data)
 @app.route("/health")
 def health():
     return jsonify({"status": "online"})
