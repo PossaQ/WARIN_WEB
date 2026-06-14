@@ -38,7 +38,7 @@ def update():
 
     data = request.json
 
-    latest_data = {
+    latest_data.update({
         "ph": data.get("ph", 0),
         "tds": data.get("tds", 0),
         "turbidity": data.get("turbidity", 0),
@@ -49,13 +49,13 @@ def update():
         "prediction": data.get("prediction", "Safe"),
         "confidence": data.get("confidence", 0),
         "timestamp": int(time.time())
-    }
+    })
 
     history.append(latest_data.copy())
     if len(history) > 200:
         history.pop(0)
 
-    return jsonify({"status": "ok"})
+    return jsonify(latest_data)
 @app.route("/health")
 def health():
     return jsonify({"status": "online"})
