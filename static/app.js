@@ -1,26 +1,25 @@
-
-// =========================
-// FRONTEND LOGIC
-// =========================
-
-let mode = "demo";
-let ws = null;
+let mode = "http";
 let pollTimer = null;
 let demoTimer = null;
-
 let history = [];
 
-const API_BASE = ""; // Flask same domain
+let map = null;
+let marker = null;
+
+// ================= CONFIG =================
+const API_BASE = window.location.origin;
 
 // ================= UI HELPERS =================
 function setText(id, v) {
   const el = document.getElementById(id);
-  if (el) el.textContent = v;
+  if (!el) return;
+  el.textContent = (v ?? "-");
 }
 
 function setBar(id, v) {
   const el = document.getElementById(id);
-  if (el) el.style.width = Math.min(100, Math.max(0, v)) + "%";
+  if (!el) return;
+  el.style.width = `${Math.min(100, Math.max(0, Number(v) || 0))}%`;
 }
 
 function setStatus(id, [cls, label]) {
@@ -37,27 +36,44 @@ function getPhStatus(v) {
   return ["status-bad", "Critical"];
 }
 
+// ================= MAIN UPDATE =================
 function updateUI(d) {
-  setText("val-ph", d.ph.toFixed(2));
-  setText("val-tds", Math.round(d.tds));
-  setText("val-turb", d.turbidity.toFixed(1));
-  setText("val-temp", d.temperature.toFixed(1));
+  if (!d) return;
 
-  setBar("bar-ph", (d.ph / 14) * 100);
-  setBar("bar-tds", (d.tds / 1000) * 100);
-  setBar("bar-turb", (d.turbidity / 20) * 100);
-  setBar("bar-temp", (d.temperature / 50) * 100);
+  const ph = Number(d.ph ?? 0);
+  const tds = Number(d.tds ?? 0);
+  const turb = Number(d.turbidity ?? 0);
+  const temp = Number(d.temperature ?? 0);
+  const bat = Number(d.battery ?? 0);
 
-  setStatus("stat-ph", getPhStatus(d.ph));
+  const lat = Number(d.latitude);
+  const lon = Number(d.longitude);
 
-  setText("val-bat", d.battery);
-  setBar("bat-fill", d.battery);
+  setText("val-ph", ph.toFixed(2));
+  setText("val-tds", Math.round(tds));
+  setText("val-turb", turb.toFixed(1));
+  setText("val-temp", temp.toFixed(1));
+  setText("val-bat", bat.toFixed(0));
 
-  setText("pred-conf", (d.confidence * 100).toFixed(1) + "%");
+  setBar("bar-ph", (ph / 14) * 100);
+  setBar("bar-tds", (tds / 1000) * 100);
+  setBar("bar-turb", (turb / 20) * 100);
+  setBar("bar-temp", (temp / 50) * 100);
+  setBar("bat-fill", bat);
 
-  updateMap(d.latitude, d.longitude);
+  setStatus("stat-ph", getPhStatus(ph));
 
-  addHistory(d);
+  if (d.confidence != null) {
+    setText("pred-conf", (d.confidence * 100).toFixed(1) + "%");
+  }
+
+  updateMap(lat, lon);
+
+  addHistory({
+    time: Date.now(),
+    ph, tds, turb, temp, bat,
+    prediction: d.prediction ?? "-"
+  });
 }
 
 // ================= HISTORY =================
@@ -66,46 +82,40 @@ function addHistory(d) {
   if (history.length > 50) history.pop();
 
   const tbody = document.getElementById("history-body");
+  if (!tbody) return;
+
   tbody.innerHTML = "";
 
   history.forEach(h => {
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td>${new Date().toLocaleTimeString()}</td>
+      <td>${new Date(h.time).toLocaleTimeString()}</td>
       <td>${h.ph.toFixed(2)}</td>
       <td>${Math.round(h.tds)}</td>
-      <td>${h.turbidity.toFixed(1)}</td>
-      <td>${h.temperature.toFixed(1)}</td>
-      <td>${h.battery}%</td>
+      <td>${h.turb.toFixed(1)}</td>
+      <td>${h.temp.toFixed(1)}</td>
+      <td>${h.bat.toFixed(0)}%</td>
       <td>${h.prediction}</td>
     `;
     tbody.appendChild(row);
   });
 }
 
-// ================= DEMO MODE =================
-function demoTick() {
-  const data = {
-    ph: 7 + Math.random(),
-    tds: 300 + Math.random() * 50,
-    turbidity: 2 + Math.random() * 2,
-    temperature: 25 + Math.random(),
-    battery: 80 + Math.random() * 10,
-    prediction: "Safe",
-    confidence: 0.9
-  };
-
-  updateUI(data);
-}
-
-// ================= HTTP =================
+// ================= FETCH (FIXED) =================
 async function fetchData() {
   try {
-    const res = await fetch("/data");
+    const res = await fetch("https://warin-web.onrender.com/data", {
+      cache: "no-store"
+    });
+
     const data = await res.json();
+
+    console.log("LIVE DATA:", data); // 🔥 ต้องเห็นเปลี่ยน
+
     updateUI(data);
+
   } catch (e) {
-    console.log("offline");
+    console.log("offline", e);
   }
 }
 
@@ -113,39 +123,51 @@ async function fetchData() {
 function setMode(m) {
   mode = m;
 
-  if (demoTimer) clearInterval(demoTimer);
-  if (pollTimer) clearInterval(pollTimer);
+  clearInterval(demoTimer);
+  clearInterval(pollTimer);
 
   if (m === "demo") {
-    demoTimer = setInterval(demoTick, 2000);
+    demoTimer = setInterval(() => {
+      updateUI({
+        ph: 7 + Math.random(),
+        tds: 300 + Math.random() * 50,
+        turbidity: 2 + Math.random() * 2,
+        temperature: 25 + Math.random(),
+        battery: 80 + Math.random() * 10,
+        latitude: 13.7563,
+        longitude: 100.5018,
+        prediction: "Safe",
+        confidence: 0.9
+      });
+    }, 2000);
   }
 
   if (m === "http") {
-    pollTimer = setInterval(fetchData, 3000);
+    fetchData(); // 🔥 run immediately
+    pollTimer = setInterval(fetchData, 2000);
   }
 }
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", () => {
-  setMode("demo");
+  setMode("http");
 });
 
-let map = null;
-let marker = null;
-
+// ================= MAP (FIXED) =================
 function updateMap(lat, lon) {
-  if (!lat || !lon) return;
+  lat = Number(lat);
+  lon = Number(lon);
 
-  lat = parseFloat(lat);
-  lon = parseFloat(lon);
+  if (!isFinite(lat) || !isFinite(lon)) return;
 
-  if (isNaN(lat) || isNaN(lon)) return;
+  // GPS not ready
+  if (lat === 0 && lon === 0) return;
 
   if (!map) {
-    map = L.map('map').setView([lat, lon], 15);
+    map = L.map("map").setView([lat, lon], 15);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap"
     }).addTo(map);
   }
 
@@ -155,9 +177,7 @@ function updateMap(lat, lon) {
     marker.setLatLng([lat, lon]);
   }
 
-  map.setView([lat, lon], map.getZoom(), {
-    animate: true
-  });
+  map.setView([lat, lon], 15, { animate: true });
 
   setText("coord-lat", lat.toFixed(5));
   setText("coord-lon", lon.toFixed(5));
